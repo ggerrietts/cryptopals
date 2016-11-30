@@ -19,19 +19,16 @@ class TestChallenge1(unittest.TestCase):
     def test_ranked_cleartext(self):
         given = '1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736'
         expected = b"Cooking MC's like a pound of bacon"
-        result = s1.ranked_cleartext(given)
-        score, key, cleartext = result[0]
+        score, key, cleartext = s1.ranked_cleartext(given)
         self.assertEqual(expected, cleartext)
         self.assertEqual(88, key)
-        self.assertEqual(3, score)
 
     def test_probe_file(self):
         given = "src/4.txt"
         result = s1.probe_file_for_secret(given)
-        score, line, key, cleartext = result[0]
+        score, line, key, cleartext = result
         self.assertEqual(b"Now that the party is jumping\n", cleartext)
         self.assertEqual(170, line)
-        self.assertEqual(4, score)
         self.assertEqual(53, key)
 
     def test_encode_rk_xor(self):

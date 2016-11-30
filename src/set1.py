@@ -30,11 +30,6 @@ letters_and_space = set(ord(x) for x in string.ascii_letters + ' ')
 printable_set = set(ord(x) for x in string.printable)
 
 def score_cleartext(ct):
-    """ score a cleartext on its "English-ness".
-    Zero anything with non-printable characters.
-    A point for every one of the 12 most common letters amongst the text's 6 most common letters. Subtract a point for every
-    character that is not a letter or space.
-    """
     if set(ct) - printable_set:
         return 0
     lowered = ct.lower()
@@ -45,6 +40,34 @@ def score_cleartext(ct):
     score -= len(set(ct) - letters_and_space)
     return score
 
+
+FREAK = {
+    'E': .1270, 'T': .0906, 'A': .0817, 'O': .0751, 'I': .0697,
+    'N': .0675, 'S': .0633, 'H': .0609, 'R': .0599, 'D': .0425,
+    'L': .0403, 'C': .0278, 'U': .0276, 'M': .0241, 'W': .0236,
+    'F': .0223, 'G': .0202, 'Y': .0197, 'P': .0193, 'B': .0129,
+    'V': .0098, 'K': .0077, 'J': .0015, 'X': .0015, 'Q': .0010,
+    'Z': .0007}
+
+for c in string.punctuation + string.whitespace:
+    FREAK[c] = .0005
+FREAK[' '] = .0050
+
+
+def score_cleartext(text):
+    """ score a cleartext on its "English-ness".
+    We use a chi-square distance between "expected" (probable) content of the string, and actual content.
+    Weights for punctuation/whitespace are entirely imaginary but seem to produce good signal.
+    """
+    up = text.upper()
+    ct = Counter(up)
+    test_statistic = 0
+    for k in range(256):
+        expected = float(FREAK.get(chr(k), 0.00001) * len(text))
+        observed = float(ct.get(k, 0))
+        test_statistic += (observed - expected)**2/expected
+    return test_statistic
+
 def ranked_cleartext(text):
     """ choose the best line assuming line was encoded with single-character xor """
     choices = []
@@ -53,9 +76,8 @@ def ranked_cleartext(text):
         ct = make_cleartext(t, k)
         sc = score_cleartext(ct)
         choices.append((sc, k, ct))
-    choices = [c for c in choices if c[0]]
-    choices.sort(reverse=True)
-    return choices
+    choices.sort()
+    return choices[0]
 
 def probe_file_for_secret(fn):
     """ find a line encoded with single-character xor """
@@ -63,12 +85,10 @@ def probe_file_for_secret(fn):
     with open(fn) as f:
         for num, line in enumerate(f):
             line = line.strip()
-            results = ranked_cleartext(line)
-            for (s, k, t) in results:
-                if s > 0:
-                    mebbe.append((s, num, k, t))
-    mebbe.sort(reverse=True)
-    return mebbe
+            (s, k, t) = ranked_cleartext(line)
+            mebbe.append((s, num, k, t))
+    mebbe.sort()
+    return mebbe[0]
 
 def encode_rk_xor(key, cleartext):
     text = cleartext.encode('utf-8')
